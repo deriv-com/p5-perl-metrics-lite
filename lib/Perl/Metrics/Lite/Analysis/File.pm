@@ -53,11 +53,10 @@ sub _init {
     my @sub_analysis = ();
     #my $sub_elements = $document->find('PPI::Statement::Sub');
     my $sub_elements = $document->find(sub {
-     return '' unless $_[1]->parent == $_[0] 
-        and 
-        ($_[1]->isa('PPI::Statement::Sub') 
-        or ($_[1]->isa('PPI::Statement') 
-        and ( defined $_[1]{children}[0]{content} and $_[1]{children}[0]{content} eq 'rpc'))
+        return '' unless $_[1]->parent == $_[0]
+            and ($_[1]->isa('PPI::Statement::Sub')
+            or ($_[1]->isa('PPI::Statement')
+            and ( defined $_[1]{children}[0]{content} and $_[1]{children}[0]{content} eq 'rpc'))
         );
     });
     @sub_analysis = @{ $self->analyze_subs($sub_elements) };
