@@ -51,7 +51,7 @@ sub _init {
         = Perl::Metrics::Lite::Analysis::Util::get_packages($document);
 
     my @sub_analysis = ();
-    #my $sub_elements = $document->find('PPI::Statement::Sub');
+    # find sub elements like 'sub { }' or 'rpc rpc_name => sub { }'
     my $sub_elements = $document->find(sub {
         return '' unless $_[1]->parent == $_[0]
             and ($_[1]->isa('PPI::Statement::Sub')
@@ -172,6 +172,13 @@ sub analyze_subs {
     return \@subs;
 }
 
+# process rpc lines like
+# rpc rpc_name => sub { }
+# children content:
+# ['rpc, ' ', 'rpc_name', ' ', '=>', ' ', 'sub', ' ', '{', ' ', '}']
+# create a new node, store the children from 'sub' to end, and replace the sub child's content with rpc name
+# the resul will be like
+# ['rpc_name', ' ', '{', ' ', '}']
 sub  replace_rpc_with_sub {
     my ( $self, $found_subs ) = @_;
 

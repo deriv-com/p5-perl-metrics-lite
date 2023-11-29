@@ -166,6 +166,7 @@ sub _print_sarif_file {
     print $json_sarif;
 }
 
+# cerate sarif details
 sub _create_sarif_details {
     my ($self, $sub_metrics) = @_;
     push @{$self->{sarif}->{runs}->[0]->{results}}, {
