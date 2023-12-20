@@ -51,7 +51,14 @@ sub _init {
         = Perl::Metrics::Lite::Analysis::Util::get_packages($document);
 
     my @sub_analysis = ();
-    my $sub_elements = $document->find('PPI::Statement::Sub');
+    # find sub elements like 'sub { }' or 'rpc rpc_name => sub { }'
+    my $sub_elements = $document->find(sub {
+        return '' unless $_[1]->parent == $_[0]
+            and ($_[1]->isa('PPI::Statement::Sub')
+            or ($_[1]->isa('PPI::Statement')
+            and ( defined $_[1]{children}[0]{content} and $_[1]{children}[0]{content} eq 'rpc'))
+        );
+    });
     @sub_analysis = @{ $self->analyze_subs($sub_elements) };
 
     $_MAIN_STATS{$self} = $self->analyze_file($document);
@@ -155,6 +162,7 @@ sub analyze_subs {
         !Perl::Metrics::Lite::Analysis::Util::is_ref( $found_subs, 'ARRAY' )
         );
 
+    $found_subs = $self->replace_rpc_with_sub($found_subs);
     my @subs = ();
     foreach my $sub ( @{$found_subs} ) {
         my $metrics = $self->measure_sub_metrics($sub);
@@ -162,6 +170,37 @@ sub analyze_subs {
         push @subs, $metrics;
     }
     return \@subs;
+}
+
+# process rpc lines like
+# rpc rpc_name => sub { }
+# children content:
+# ['rpc, ' ', 'rpc_name', ' ', '=>', ' ', 'sub', ' ', '{', ' ', '}']
+# create a new node, store the children from 'sub' to end, and replace the sub child's content with rpc name
+# the resul will be like
+# ['rpc_name', ' ', '{', ' ', '}']
+sub  replace_rpc_with_sub {
+    my ( $self, $found_subs ) = @_;
+
+    my @modified_subs = ();
+    foreach my $sub ( @{$found_subs} ) {
+        if (not $sub->isa('PPI::Statement::Sub')) {
+            my $new_sub = PPI::Statement::Sub->new();
+            my @indices = grep {$sub->{children}[$_] && defined $sub->{children}[$_]{content} && $sub->{children}[$_]{content} eq 'sub'} 0..$#{$sub->{children}};
+            
+            if (defined $indices[0]) {
+                push @{$new_sub->{children}},  @{$sub->{children}}[($indices[0])..$#{$sub->{children}}];
+                my $new_name = $sub->{children}[2]{content};
+                $new_sub->{children}[0]->set_content($new_name);
+                push @modified_subs, $new_sub;
+            }
+        } 
+        else {
+            push @modified_subs, $sub;
+        }
+    }
+
+    return \@modified_subs;
 }
 
 sub measure_sub_metrics {
